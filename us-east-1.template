@@ -1,0 +1,367 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Migration"
+Parameters: 
+   
+  VpcCIDR: 
+    Default: 10.16.0.0/16
+    Description: "The CIDR block for the VPC"
+    Type: String
+    AllowedValues:
+      - 10.16.0.0/16
+    
+  SubnetCIDR: 
+    Default: 10.16.10.0/24
+    Description: "CIDR for public subnet"
+    Type: String
+    AllowedValues:
+      - 10.16.10.0/24
+
+  PrivateSubnetCIDR:
+    Default: 10.16.11.0/24
+    Description: "Private subnet for DB"
+    Type: String
+    AllowedValues:
+      - 10.16.11.0/24
+
+  #LabUserId:
+  #  Default: arn:aws:sts:012345678-assumed-role/vocareum-role/username
+  #  Description: "session user ARN"
+  #  Type: String
+
+  KeyName: 
+    Description: Amazon EC2 Key Pair
+    Type: "AWS::EC2::KeyPair::KeyName"
+
+Mappings:
+  RegionToAMI:
+    us-east-1:
+      AMI: ami-026c8acd92718196b
+    us-west-2:
+      AMI: ami-07b4f3c02c7f83d59
+        
+Resources:
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true  
+      Tags: 
+       - Key: Name
+         Value: "Cloud9 VPC"
+  subnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+     VpcId: !Ref VPC
+     AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+     CidrBlock: !Ref SubnetCIDR
+     MapPublicIpOnLaunch: true
+     Tags:
+      - Key: Name
+        Value: "Cloud9 subnet"
+
+  privatesubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnetCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: "DB subnet"
+
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref subnet
+        
+  IGW:
+    Type: "AWS::EC2::InternetGateway"
+    DependsOn: VPC
+  AttachGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    DependsOn: 
+      - VPC
+      - IGW
+    Properties: 
+     VpcId: !Ref VPC
+     InternetGatewayId: !Ref IGW
+     
+  ec2Route:
+    Type: "AWS::EC2::RouteTable"
+    DependsOn:
+      - VPC
+      - AttachGateway
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRoute:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+
+  routeOut:
+    Type: "AWS::EC2::Route"
+    DependsOn: 
+      - ec2Route
+      - AttachGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+      RouteTableId: !Ref ec2Route
+
+  privateroute:
+    Type: "AWS::EC2::Route"
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+      RouteTableId: !Ref PrivateRoute
+
+  SubnetRouteAssociate:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DependsOn:
+      - ec2Route
+      - subnet 
+    Properties:
+      RouteTableId: !Ref ec2Route
+      SubnetId: !Ref subnet
+
+  PrivateSubnetRouteAssociate:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DependsOn:
+      - ec2Route
+      - subnet 
+    Properties:
+      RouteTableId: !Ref PrivateRoute
+      SubnetId: !Ref privatesubnet
+
+  Cloud9: 
+    Type: "AWS::Cloud9::EnvironmentEC2"
+    Properties: 
+      InstanceType: t2.micro
+      SubnetId: !Ref subnet
+      #OwnerArn: !Ref LabUserId
+      Name: MigrationLab
+  
+  SSHGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow C9 to EC2 instance.
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: 10.16.0.0/16
+          FromPort: 22
+          ToPort: 22
+
+  GhostGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow SQL communication.
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          FromPort: 2368
+          ToPort: 2368
+
+  DBGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Web communication.
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: 10.16.0.0/16
+          FromPort: 3306
+          ToPort: 3306
+
+  DatabaseInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: t2.micro
+      SubnetId: !Ref privatesubnet
+      PrivateIpAddress: 10.16.11.80
+      IamInstanceProfile: !Ref MigrationProfile
+      KeyName: 
+        Ref: "KeyName"
+      ImageId: !FindInMap
+        - RegionToAMI
+        - !Ref 'AWS::Region'
+        - AMI
+      Tags:
+        - Key: "Name"
+          Value: "DatabaseInstance"
+      SecurityGroupIds:
+       - !Ref SSHGroup
+       - !Ref DBGroup
+      EbsOptimized: false
+      BlockDeviceMappings: 
+       - DeviceName: "/dev/sda1"
+         Ebs: 
+          VolumeSize: 8
+          DeleteOnTermination: true
+          VolumeType: "gp2"
+               
+       - DeviceName: "/dev/sdb"
+         Ebs: 
+          VolumeSize: 8
+          DeleteOnTermination: true
+          Encrypted: false
+          VolumeType: "gp2"
+      UserData:
+        Fn::Base64:
+          !Sub | 
+          #!/bin/bash -xe
+          # Update/upgrade
+          apt-get -y update
+          apt install -y awscli
+          apt-get -y install mysql-server
+          sed -i 's/127.0.0.1/0.0.0.0'/ /etc/mysql/mysql.conf.d/mysqld.cnf
+          systemctl restart mysql
+          # Set up ghost-db drive
+          mkdir /ghost-db
+          mkfs -t ext4 /dev/xvdb
+          mount /dev/xvdb /ghost-db/
+          sed -i 'i /dev/xvdb   /ghost-db ext4 defaults,nofail 0 0' /etc/fstab
+          #Setup MySQL
+          mysql -u root -e "SET PASSWORD FOR root@localhost = PASSWORD('apples')";
+          mysql -u root -e "CREATE USER 'ghost'@'localhost' IDENTIFIED BY 'oranges'";
+          mysql -u root -e "FLUSH PRIVILEGES";
+          mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'ghost'@'%' IDENTIFIED BY 'oranges'";
+          mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'ghost'@'localhost' IDENTIFIED BY 'oranges'";
+          rsync -av /var/lib/mysql /ghost-db
+          sed -i 's|/var/lib/mysql|/ghost-db/mysql|g' /etc/mysql/mysql.conf.d/mysqld.cnf
+          echo 'alias /var/lib/mysql -> /ghost-db/mysql,' >> /etc/apparmor.d/tunables/alias
+          sed -i 's|/var/lib/mysql|/ghost-db/mysql|g' /etc/apparmor.d/usr.sbin.mysqld
+          sed -i '6i /proc/*/status r,' /etc/apparmor.d/usr.sbin.mysqld
+          sed -i '7i /sys/devices/system/node/ r,' /etc/apparmor.d/usr.sbin.mysqld
+          sed -i '8i /sys/devices/system/node/node*/meminfo r,' /etc/apparmor.d/usr.sbin.mysqld
+          systemctl restart apparmor
+          chown mysql:mysql -R /var/lib/mysql/ 
+          systemctl restart mysql
+          #rm /var/log/cloud-init-output.log
+          
+  MigrationInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: t2.micro
+      SubnetId: !Ref subnet
+      IamInstanceProfile: !Ref MigrationProfile
+      KeyName: 
+        Ref: "KeyName"
+      ImageId: !FindInMap
+        - RegionToAMI
+        - !Ref 'AWS::Region'
+        - AMI
+      Tags:
+        - Key: "Name"
+          Value: "ApplicationInstance"
+      SecurityGroupIds:
+       - !Ref SSHGroup
+       - !Ref GhostGroup
+      EbsOptimized: false
+      BlockDeviceMappings: 
+       - DeviceName: "/dev/sda1"
+         Ebs: 
+          VolumeSize: 8
+          DeleteOnTermination: true
+          VolumeType: "gp2"
+               
+       - DeviceName: "/dev/sdb"
+         Ebs: 
+          VolumeSize: 8
+          DeleteOnTermination: true
+          Encrypted: false
+          VolumeType: "gp2"
+
+      UserData:
+        Fn::Base64:
+          !Sub | 
+          #!/bin/bash -xe
+          # Set up ghost-app drive
+          mkdir /ghost-app
+          mkfs -t ext4 /dev/xvdb
+          mount /dev/xvdb /ghost-app/
+          sed -i 'i /dev/xvdb   /ghost-app ext4 defaults,nofail 0 0' /etc/fstab
+          # Update/upgrade
+          apt-get -y update
+          apt install -y build-essential
+          apt install -y mysql-client
+          # Install/setup ghost
+          curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash
+          apt-get install -y nodejs
+          npm install -g ghost-cli@latest
+          mkdir -p /ghost-app/ghost
+          adduser ghost-user
+          echo -e "pears\npears" | passwd ghost-user
+          usermod -aG sudo ghost-user
+          sed -i 'i ghost-user ALL=(ALL) NOPASSWD: ALL' /etc/sudoers
+          chown ghost-user:ghost-user /ghost-app/ghost
+          chmod 775 /ghost-app/ghost
+          useradd --system --user-group ghost
+          sleep 30s
+          su ghost-user << 'EOF'
+          cd /ghost-app/ghost
+          ghost install --no-setup --no-stack --dbhost 10.16.11.80 --dbuser ghost --dbpass oranges --dbname ghost_prod
+          EOF
+          chown -R ghost:ghost /ghost-app/ghost/content
+          su ghost-user << 'EOF'
+          cd /ghost-app/ghost
+          hostname="$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
+          ghost setup --url http://$hostname:2368 --port 2368 --ip 0.0.0.0 --dbhost 10.16.11.80 --dbuser ghost --pname ghostblog --dbpass oranges --dbname ghost_prod --dir /ghost-app/ghost --no-setup-systemd --no-start --no-setup-linux-user
+          EOF
+          su ghost-user << 'EOF'
+          cd /ghost-app/ghost
+          ghost setup linux-user
+          ghost setup systemd
+          ghost start
+          mysql -u ghost -poranges -h 10.16.11.80 -e "DROP DATABASE ghost_prod";
+          mysql -u ghost -poranges -h 10.16.11.80 -e "CREATE DATABASE ghost_prod";    
+          EOF
+          #rm /var/log/cloud-init-output.log
+                        
+  MigrationProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: MigrationRole
+  MigrationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSApplicationDiscoveryAgentAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+
+Outputs:
+  SubnetID:
+    Description: "Subnet ID"
+    Value: !Ref subnet
+    Export:
+      Name: !Sub "${AWS::StackName}-subnet"
+  VPCID:
+    Description: "VPC ID"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPC"
+ 
+

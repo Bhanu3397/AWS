@@ -1,0 +1,6 @@
+Amazon ECR: Elastic container registry is used to store and share docker images across the organization. You can also store images in Amazon S3, but it is complicated to scale and authorization/authentication point of view.
+
+container registry is a location to store and distribute images.
+The container registry acts similar to a code repository, but for container images.
+
+Amazon Elastic beanstalk: Is a service where can host your application without maintaining infrastructure. You can deploy your docker images in the Elastic beanstalk service.

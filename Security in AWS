@@ -1,0 +1,86 @@
+VPC:-
+An "internet gateway" serves two purposes: to provide a target in your VPC route tables for internet-routable traffic, and to perform network address translation (NAT) for instances that have been assigned public IPv4 addresses.
+For an ec2 to accept traffic from and to you need to specify both inbound and outbound rules(NACLs). These are called stateless rules. 0.0.0.0/0 means you are allowing trafic from all the IP addresses.
+a Security group is a stateful, if you specify a rule it will automatically accept both inbound and outbound traffic.
+
+VPC Endpoints and Private Link:- This allows you to route your bees through a secure endpoint in one VPC and to another. No need to route traffic through outside networks.
+
+Route Tables
+A route table contains a set of rules, called routes, that are used to determine where network traffic is directed.
+Each subnet in your VPC must be associated with a route table; the table controls the routing for the subnet. A subnet can only be associated with one route table at a time, but you can associate multiple subnets with the same route table.
+
+AWS Direct Connect
+AWS Direct Connect is a cloud service solution that makes it easy to establish a dedicated network connection from your premises to AWS. Using AWS Direct Connect, you can establish private connectivity between AWS and your datacenter, office, or colocation environment, which in many cases can reduce your network costs, increase bandwidth throughput, and provide a more consistent network experience than Internet-based connections.
+
+Which of these AWS resources cannot be monitored using VPC Flow logs? An internet gateway attached to VPC
+
+Detective Controls:-
+Auditing:-This means auditing who's doing what, what is being done, and are there ways to improve security and compliance across the board. Essentially, you're inspecting your infrastructure and service usage to make sure that nobody is winging it in your system. The first AWS service that we will explore is called AWS CloudTrail.
+
+AWS CloudTrail:-It enables you to see who is doing what in your AWS infrastructure. You can track user usage of the console API calls, AWS SDKs, command line tools, and other AWS services themselves, so that you know who's interacting with your infrastructure. The best part is that it's enabled by default and you can view account activity for the past 90 days right in the CloudTrail console. 
+
+Amazon Inspector:- helps to improve security and compliance of your AWS deployed applications by running an automated security assessment.The service consists of three parts - a network configuration reachability piece; an Amazon agent, which can be installed on EC2 instances; and a security assessment service that brings them all together.
+
+Trusted Advisor:-This service assists you in provisioning your AWS resources using best practices. It then produces a report under five different categories - cost optimization, performance, security, fault tolerance, and even service limits. 
+
+AWS Config 
+AWS Config is a service that enables you to assess, audit, and evaluate the configurations of your AWS resources. Config continuously monitors and records your AWS resource configurations and allows you to automate the evaluation of recorded configurations against desired configurations. With Config, you can review changes in configurations and relationships between AWS resources, dive into detailed resource configuration histories, and determine your overall compliance against the configurations specified in your internal guidelines. This enables you to simplify compliance auditing, security analysis, change management, and operational troubleshooting. 
+
+Monitoring CloudWatch and CloudWatch Logs:-
+monitoring is to collect, track, and display data and statistics of infrastructure.
+
+Amazon CloudWatch is basically a metrics repository.
+
+Amazon GuardDuty
+Amazon GuardDuty is a threat detection service that continuously monitors for malicious activity and unauthorized behavior to protect your AWS accounts and workloads. With the cloud, the collection and aggregation of account and network activities is simplified, but it can be time consuming for security teams to continuously analyze event log data for potential threats. With GuardDuty, you now have an intelligent and cost-effective option for continuous threat detection in the AWS Cloud. The service uses machine learning, anomaly detection, and integrated threat intelligence to identify and prioritize potential threats. GuardDuty analyzes tens of billions of events across multiple AWS data sources, such as AWS CloudTrail, Amazon VPC Flow Logs, and DNS logs. With a few clicks in the AWS Management Console, GuardDuty can be enabled with no software or hardware to deploy or maintain. By integrating with AWS CloudWatch Events, GuardDuty alerts are actionable, easy to aggregate across multiple accounts, and straightforward to push into existing event management and workflow systems. 
+
+AWS Security Hub
+AWS Security Hub gives you a comprehensive view of your high-priority security alerts and compliance status across AWS accounts. With Security Hub, you have a single place that aggregates, organizes, and prioritizes your security alerts, or findings, from multiple AWS services, such as Amazon GuardDuty, Amazon Inspector, and Amazon Macie, as well as from AWS Partner solutions. Your findings are visually summarized on integrated dashboards with actionable graphs and tables. You can also continuously monitor your environment using automated compliance checks based on the AWS best practices and industry standards your organization follows.
+
+
+The process for securing EC2 instances involves principles that are applicable to any OS, whether running in a virtual machine or on premises:
+
+Least Access: Restrict server access from both the network and on the instance, install only the required OS components and applications, and leverage host-based protection software.
+Least Privilege: Define the minimum set of privileges each server needs in order to perform its function.
+Configuration Management: Create a baseline server configuration and track each server as a configuration item. Assess each server against the current recorded baseline to identify and flag any deviations. Ensure each server is configured to generate and securely store appropriate log and audit data.
+Change Management: Create processes to control changes to server configuration baselines.
+Audit Logs: Audit access and all changes to EC2 instances to verify server integrity to ensure only authorized changes are made.
+
+
+Elastic Load Balancing (ELB)
+Elastic Load Balancing works with Amazon Virtual Private Cloud (VPC) to provide robust security features, including integrated certificate management, user-authentication, and SSL/TLS decryption. Together, they give you the flexibility to centrally manage TLS settings and offload CPU intensive workloads from your applications.  For more information on ELB, see https://aws.amazon.com/elasticloadbalancing/ 
+
+Additional information about TLS termination for Network Load balancers is available in this AWS Blog posting: https://aws.amazon.com/blogs/aws/new-tls-termination-for-network-load-balancers/
+
+Amazon API Gateway
+Amazon API Gateway is a fully managed service that makes it easy for developers to create, publish, maintain, monitor, and secure APIs at any scale. With a few clicks in the AWS Management Console, you can create REST and WebSocket APIs that act as a “front door” for applications to access data, business logic, or functionality from your backend services, such as workloads running on Amazon Elastic Compute Cloud (Amazon EC2), code running on AWS Lambda, any web application, or real-time communication applications.  Information about Amazon API Gateway can be found at: https://aws.amazon.com/api-gateway/
+
+AWS Shield
+AWS Shield is a managed Distributed Denial of Service (DDoS) protection service that safeguards applications running on AWS. AWS Shield provides always-on detection and automatic inline mitigations that minimize application downtime and latency, so there is no need to engage AWS Support to benefit from DDoS protection. There are two tiers of AWS Shield - Standard and Advanced.  Details on AWS Shield are available at: https://aws.amazon.com/shield/
+
+AWS WAF
+AWS WAF is a web application firewall that helps protect your web applications from common web exploits that could affect application availability, compromise security, or consume excessive resources. AWS WAF gives you control over which traffic to allow or block to your web applications by defining customizable web security rules. You can use AWS WAF to create custom rules that block common attack patterns, such as SQL injection or cross-site scripting, and rules that are designed for your specific application. New rules can be deployed within minutes, letting you respond quickly to changing traffic patterns. Also, AWS WAF includes a full-featured API that you can use to automate the creation, deployment, and maintenance of web security rules.  Details on AWS WAF are available at: https://aws.amazon.com/waf/
+
+
+AWS Storage Services
+AWS has many storage services that you are able to utilize for both block and object storage options, and within those services there are multiple options for you to evaluate. Finding the correct tool for the specific needs you have will be one of the most important tasks while you’re migrating. Checkout the following links to learn more about each topic:
+
+A​mason Elastic File System (Amazon EFS)
+Amazon Elastic Block Store (Amazon EBS)
+A​mason EBS Volume Types
+A​mason Simple Storage Service (Amazon S3)
+ Data Transfer
+Just as you should understand that secure data transfer is important, you should also consider that there are different types and styles of data transfer between environments. Whether a one-time migration, or ongoing data synchronization across environments, there are tools within AWS that can assist. Checkout the following links to learn more about each topic:
+
+A​WS Storage Gateway
+A​WS DataSync
+A​WS Snowball
+A​WS Snowball FAQs
+AWS Server Migration Services
+AWS Server Migration Service (AWS SMS) automates the migration of your on-premises VMware vSphere, Microsoft Hyper-V/SCVMM, and Azure virtual machines to the AWS Cloud. AWS SMS incrementally replicates your server VMs as cloud-hosted Amazon Machine Images (AMIs) ready for deployment on Amazon EC2. Checkout AWS Server Migration Service FAQs for more info.
+
+ Amazon Aurora
+Amazon Aurora is a fully managed relational database engine that's compatible with MySQL and PostgreSQL. You already know how MySQL and PostgreSQL combine the speed and reliability of high-end commercial databases with the simplicity and cost-effectiveness of open-source databases. The code, tools, and applications you use today with your existing MySQL and PostgreSQL databases can be used with Aurora. Here's a quick overview of Amazon Aurora and how Aurora Serverless works.
+
+ AWS DMS and AWS SCT
+With AWS DMS, you can perform one-time migrations, and you can replicate ongoing changes to keep sources and targets in sync. Checkout How AWS Database Migration Service Works for more info. If you want to change database engines, you can use the AWS Schema Conversion Tool (AWS SCT) to translate your database schema to the new platform. You then use AWS DMS to migrate the data.
